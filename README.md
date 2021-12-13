@@ -13,7 +13,12 @@ http://howcommonismyname.herokuapp.com/
 ![Screenshot (8)](https://user-images.githubusercontent.com/92554847/145744897-704efda7-b625-4552-bda9-553a02baca38.png)
 ![Screenshot (9)](https://user-images.githubusercontent.com/92554847/145744903-8c8b68e6-8194-4dec-bb8a-32020c607e8f.png)
 ## Features
-
-## Getting Started
+This app allows you to query for any name, and will return 3 figures: 
+- The first fegure is a choropleth of a US map that shows you how many applications for the nae input have been in each state since 1910.
+- The socond figuRE is an indicator that desplays the total social security applications in the U.S since 1910.
+- the last figure is a diagrams that plots a line of total applications per year, and shows you the trends of the giving name so far.
+- 
+## Upcomming Chnages
+- User feedback when a name input is invalid
 
 
