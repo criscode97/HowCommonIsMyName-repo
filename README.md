@@ -18,7 +18,7 @@ This app allows you to query for any name, and will return 3 figures:
 - The socond figuRE is an indicator that desplays the total social security applications in the U.S since 1910.
 - the last figure is a diagrams that plots a line of total applications per year, and shows you the trends of the giving name so far.
 
-## Upcomming Chnages
+## Upcomming Changes
 - User feedback when a name input is invalid
 
 
