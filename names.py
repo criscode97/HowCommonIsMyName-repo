@@ -3,6 +3,7 @@ from pandas.io import gbq  # to communicate with Google BigQuery
 from urllib.request import urlopen
 from google.oauth2 import service_account
 import json
+import os
 
 from dash import Dash, dcc, html
 from dash.dependencies import Input, Output
@@ -19,6 +20,7 @@ project_id = "hwocommonismyname"
 credentials = service_account.Credentials.from_service_account_file(
     "hwocommonismyname-9ca4b44479c8.json"
 )
+bigquery_table = os.environ.get('TABLE_NAME')
 
 # load geojson map
 with urlopen(
@@ -184,7 +186,7 @@ def display_map(name):
     # query string for big query
     name_query = f"""
     SELECT state, SUM(number) AS total
-        FROM `hwocommonismyname.myname123456.ss_names`
+        FROM `{bigquery_table}`
         WHERE
         UPPER(name) LIKE '{name.upper()}'
         GROUP BY state;
@@ -234,7 +236,7 @@ def display_chart(name):
     # BigQuery Query String to create table
     name_query = f"""
     SELECT year, SUM(number) AS total
-        FROM `hwocommonismyname.myname123456.ss_names`
+        FROM `{bigquery_table}`
         WHERE
         UPPER(name) LIKE '{name.upper()}'
         GROUP BY year
@@ -301,7 +303,7 @@ def indicator(name):
     # BigQuery Query string for sum
     name_query = f"""
     SELECT SUM(number) AS name_sum
-        FROM `hwocommonismyname.myname123456.ss_names`
+        FROM `{bigquery_table}`
         WHERE
         UPPER(name) LIKE '{name.upper()}';
     """
