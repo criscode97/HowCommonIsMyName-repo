@@ -1,16 +1,20 @@
+from functools import total_ordering
 import plotly.graph_objs as go
 from pandas.io import gbq  # to communicate with Google BigQuery
-from urllib.request import urlopen
 from google.oauth2 import service_account
-import json
-import os
+
 
 from dash import Dash, dcc, html
-from dash.dependencies import Input, Output
+import dash
+from dash.dependencies import Input, Output, State
 import dash_bootstrap_components as dbc
+from dash.exceptions import PreventUpdate
+import pandas as pd
 
 # initialize app and link to bootstrap
 app = Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
+server = app.server
+
 app.title = "How Common Is My Name?"
 app_color = {"graph_bg": "#ffffff", "graph_line": "#ffffff"}
 
@@ -18,15 +22,16 @@ app_color = {"graph_bg": "#ffffff", "graph_line": "#ffffff"}
 # load bigQuery credentials from json file
 project_id = "hwocommonismyname"
 credentials = service_account.Credentials.from_service_account_file(
-    "hwocommonismyname-9ca4b44479c8.json"
+    "hwocommonismyname-634c2e9f8359.json"
 )
-bigquery_table = os.environ.get('TABLE_NAME')
 
-# load geojson map
-with urlopen(
-    "https://eric.clst.org/assets/wiki/uploads/Stuff/gz_2010_us_040_00_500k.json"
-) as response:
-    states = json.load(response)
+empty_figure = go.Figure()
+empty_figure.update_layout(plot_bgcolor=app_color["graph_bg"], paper_bgcolor=app_color["graph_bg"],
+                          yaxis = dict(showgrid=False, zeroline=False, tickfont = dict(color = app_color["graph_line"])),
+                          xaxis = dict(showgrid=False, zeroline=False, tickfont = dict(color = app_color["graph_line"])))
+
+alert = dbc.Alert("Your name selection did not generate any results.", color="danger",
+                  dismissable=True)
 
 # html/dash app layout config
 app.layout = html.Div(
@@ -50,7 +55,7 @@ app.layout = html.Div(
                                                                 type="text",
                                                                 placeholder="Enter Your Name",
                                                                 className="form-control mb-2",
-                                                            )
+                                                            ),
                                                         ),
                                                     ],
                                                     className="col-auto",
@@ -59,10 +64,10 @@ app.layout = html.Div(
                                                     children=[
                                                         html.Button(
                                                             "Submit",
-                                                            id="submit-val",
+                                                            id="submit-button",
                                                             n_clicks=0,
                                                             className="btn btn-primary mb-2",
-                                                        ),
+                                                        ), html.Div(id="the-alert", children=[]),
                                                     ],
                                                     className="col-md-12",
                                                 ),
@@ -175,18 +180,44 @@ app.layout = html.Div(
         html.Br(),
     ]
 )
-
+@app.callback(
+    Output("the-alert", "children"),
+    Input('submit-button', 'n_clicks'),
+    State('input-on-submit', 'value'),
+)
+def err(n_clicks, name):
+    if not name:
+        return None
+    name_query = f"""
+    SELECT *
+        FROM `hwocommonismyname.myname123456.ss_names`
+        WHERE
+        UPPER(name) LIKE '{name.upper()}'
+        LIMIT 2;
+    """
+    name_df = gbq.read_gbq(
+        name_query,
+        project_id=project_id,
+        dialect="standard",
+        credentials=credentials,
+    )
+    if len(name_df)==0:
+        return alert
+    return None
 
 # U.S. States map funtion:
 @app.callback(
-    Output("names_map", "figure"),
-    Input("input-on-submit", "value"),
+    Output("names_map", 'figure'),
+    Input('submit-button', 'n_clicks'),
+    State('input-on-submit', 'value'),
 )
-def display_map(name):
+def display_map(n_clicks, name):
     # query string for big query
+    if n_clicks == 0:
+        return empty_figure
     name_query = f"""
     SELECT state, SUM(number) AS total
-        FROM `{bigquery_table}`
+        FROM `hwocommonismyname.myname123456.ss_names`
         WHERE
         UPPER(name) LIKE '{name.upper()}'
         GROUP BY state;
@@ -198,6 +229,8 @@ def display_map(name):
         dialect="standard",
         credentials=credentials,
     )
+    if len(name_df) == 0:
+        return empty_figure
     # data dictiorary for the choropleth plot
     data = dict(
         type="choropleth",
@@ -230,13 +263,17 @@ def display_map(name):
 # Year/total Scatter plot funtion
 @app.callback(
     Output("display_chart", "figure"),
-    Input("input-on-submit", "value"),
+    Input('submit-button', 'n_clicks'),
+    State("input-on-submit", "value"),
 )
-def display_chart(name):
-    # BigQuery Query String to create table
+def display_chart(n_clicks, name):
+    if n_clicks == 0:
+    # prevent the None callbacks is important with the store component.
+    # you don't want to update the store for nothing.
+        return empty_figure
     name_query = f"""
     SELECT year, SUM(number) AS total
-        FROM `{bigquery_table}`
+        FROM `hwocommonismyname.myname123456.ss_names`
         WHERE
         UPPER(name) LIKE '{name.upper()}'
         GROUP BY year
@@ -249,7 +286,8 @@ def display_chart(name):
         dialect="standard",
         credentials=credentials,
     )
-
+    if len(name_df) == 0:
+        return empty_figure
     # create scatter plot with new table
     fig = go.Figure(
         go.Scatter(x=name_df.year, y=name_df.total, mode="lines", name=name)
@@ -297,13 +335,17 @@ def display_chart(name):
 # Total indicator figure function
 @app.callback(
     Output("name-indicator", "figure"),
-    Input("input-on-submit", "value"),
+    Input('submit-button', 'n_clicks'),
+    State("input-on-submit", "value"),
 )
-def indicator(name):
-    # BigQuery Query string for sum
+def indicator(n_clicks, name):
+    if n_clicks == 0:
+    # prevent the None callbacks is important with the store component.
+    # you don't want to update the store for nothing.
+        return empty_figure
     name_query = f"""
     SELECT SUM(number) AS name_sum
-        FROM `{bigquery_table}`
+        FROM `hwocommonismyname.myname123456.ss_names`
         WHERE
         UPPER(name) LIKE '{name.upper()}';
     """
@@ -314,6 +356,9 @@ def indicator(name):
         dialect="standard",
         credentials=credentials,
     )
+    if total.dropna().empty:
+        return empty_figure
+
     # initialize figure
     fig = go.Figure(
         go.Indicator(
@@ -341,4 +386,4 @@ def indicator(name):
 
 
 if __name__ == "__main__":
-    app.run_server()
+    app.run_server(debug=True)
